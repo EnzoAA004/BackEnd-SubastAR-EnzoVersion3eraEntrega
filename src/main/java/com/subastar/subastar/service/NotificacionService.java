@@ -1,9 +1,13 @@
 package com.subastar.subastar.service;
 
+import com.subastar.subastar.event.NotificationCreatedDomainEvent;
 import com.subastar.subastar.model.ChatMensaje;
 import com.subastar.subastar.model.Cliente;
 import com.subastar.subastar.repository.ChatMensajeRepository;
+import com.subastar.subastar.repository.CredencialRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +18,12 @@ import java.util.Locale;
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class NotificacionService {
 
     private final ChatMensajeRepository chatMensajeRepository;
+    private final CredencialRepository credencialRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public void notificarGanadorSubasta(Cliente cliente, String nombreItem,
                                         BigDecimal importePujado, BigDecimal comision) {
@@ -126,6 +133,32 @@ public class NotificacionService {
         msg.setEmisor("sistema");
         msg.setContenido(contenido);
         msg.setLeido(false);
-        chatMensajeRepository.save(msg);
+        ChatMensaje savedMsg = chatMensajeRepository.save(msg);
+
+        Integer clienteId = cliente != null ? cliente.getIdentificador() : null;
+        credencialRepository.findByPersonaId(clienteId).ifPresentOrElse(
+                credencial -> eventPublisher.publishEvent(new NotificationCreatedDomainEvent(
+                        credencial.getEmail(),
+                        savedMsg.getId(),
+                        savedMsg.getTipo(),
+                        tituloParaTipo(savedMsg.getTipo()),
+                        savedMsg.getContenido(),
+                        savedMsg.getTimestampMsg(),
+                        savedMsg.isLeido()
+                )),
+                () -> log.warn("Notification {} saved but no credential was found for clienteId={}",
+                        savedMsg.getId(), clienteId)
+        );
+    }
+
+    private String tituloParaTipo(String tipo) {
+        return switch (tipo) {
+            case "compra" -> "Compra";
+            case "multa" -> "Multa";
+            case "bien" -> "Aviso";
+            case "poliza" -> "Poliza";
+            case "soporte" -> "Soporte";
+            default -> "Aviso";
+        };
     }
 }

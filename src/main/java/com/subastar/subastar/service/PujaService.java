@@ -2,12 +2,14 @@ package com.subastar.subastar.service;
 
 import com.subastar.subastar.dto.puja.PujaRequest;
 import com.subastar.subastar.dto.puja.PujaResumen;
+import com.subastar.subastar.event.BidPlacedDomainEvent;
 import com.subastar.subastar.exception.BadRequestException;
 import com.subastar.subastar.exception.ForbiddenException;
 import com.subastar.subastar.exception.ResourceNotFoundException;
 import com.subastar.subastar.model.*;
 import com.subastar.subastar.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,7 @@ public class PujaService {
     private final MultaRepository multaRepository;
     private final TarjetaCreditoRepository tarjetaCreditoRepository;
     private final NotificacionService notificacionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public PujaResumen pujar(Integer subastaId, PujaRequest req, String email) {
@@ -163,7 +166,17 @@ public class PujaService {
                 ? item.getProducto().getDescripcionCatalogo() : "Ítem #" + item.getIdentificador();
         notificacionService.notificarPujaRegistrada(cliente, nombreItem, req.getMonto());
 
-        return toPujaResumen(pujo, pe);
+        PujaResumen resumen = toPujaResumen(pujo, pe);
+        eventPublisher.publishEvent(new BidPlacedDomainEvent(
+                subastaId,
+                item.getIdentificador(),
+                pujo.getIdentificador(),
+                pujo.getImporte(),
+                resumen.getNombreUsuario(),
+                resumen.getTimestamp()
+        ));
+
+        return resumen;
     }
 
     public List<PujaResumen> getHistorialPujas(Integer subastaId, Integer itemId) {
