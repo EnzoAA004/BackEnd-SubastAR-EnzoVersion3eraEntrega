@@ -2,6 +2,7 @@ package com.subastar.subastar.service;
 
 import com.subastar.subastar.dto.puja.PujaRequest;
 import com.subastar.subastar.dto.puja.PujaResumen;
+import com.subastar.subastar.event.BidOutbidDomainEvent;
 import com.subastar.subastar.event.BidPlacedDomainEvent;
 import com.subastar.subastar.exception.BadRequestException;
 import com.subastar.subastar.exception.ForbiddenException;
@@ -114,8 +115,9 @@ public class PujaService {
 
         // Validar monto
         BigDecimal precioBase = item.getPrecioBase();
-        BigDecimal mejorOferta = pujoRepository.findTopByItemIdentificadorOrderByImporteDesc(item.getIdentificador())
-                .map(Pujo::getImporte).orElse(BigDecimal.ZERO);
+        Pujo mejorPujaAnterior = pujoRepository.findTopByItemIdentificadorOrderByImporteDesc(item.getIdentificador())
+                .orElse(null);
+        BigDecimal mejorOferta = mejorPujaAnterior != null ? mejorPujaAnterior.getImporte() : BigDecimal.ZERO;
 
         boolean esOroOPlatino = "oro".equals(cliente.getCategoria()) || "platino".equals(cliente.getCategoria());
 
@@ -175,6 +177,7 @@ public class PujaService {
                 resumen.getNombreUsuario(),
                 resumen.getTimestamp()
         ));
+        publicarPujaSuperadaSiCorresponde(mejorPujaAnterior, cliente, subastaId, item, resumen);
 
         return resumen;
     }
@@ -199,6 +202,30 @@ public class PujaService {
         if (pe != null) r.setTimestamp(pe.getTimestampPuja());
         r.setEsGanadora("si".equals(p.getGanador()));
         return r;
+    }
+
+    private void publicarPujaSuperadaSiCorresponde(Pujo mejorPujaAnterior, Cliente nuevoPostor,
+                                                   Integer subastaId, ItemCatalogo item, PujaResumen nuevaPuja) {
+        if (mejorPujaAnterior == null || mejorPujaAnterior.getAsistente() == null) {
+            return;
+        }
+
+        Cliente clienteSuperado = mejorPujaAnterior.getAsistente().getCliente();
+        if (clienteSuperado == null
+                || clienteSuperado.getIdentificador().equals(nuevoPostor.getIdentificador())) {
+            return;
+        }
+
+        credencialRepository.findByPersonaId(clienteSuperado.getIdentificador())
+                .ifPresent(credencial -> eventPublisher.publishEvent(new BidOutbidDomainEvent(
+                        credencial.getEmail(),
+                        subastaId,
+                        item.getIdentificador(),
+                        nuevaPuja.getId(),
+                        nuevaPuja.getMonto(),
+                        nuevaPuja.getNombreUsuario(),
+                        nuevaPuja.getTimestamp()
+                )));
     }
 
     // A-8: nivel numérico de categoría para comparación

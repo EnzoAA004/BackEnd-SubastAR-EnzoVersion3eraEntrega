@@ -3,6 +3,7 @@ package com.subastar.subastar.realtime;
 import com.subastar.subastar.dto.realtime.AuctionRealtimeEvent;
 import com.subastar.subastar.dto.realtime.RealtimeEventType;
 import com.subastar.subastar.dto.realtime.UserNotificationRealtimeEvent;
+import com.subastar.subastar.event.BidOutbidDomainEvent;
 import com.subastar.subastar.event.BidPlacedDomainEvent;
 import com.subastar.subastar.event.NotificationCreatedDomainEvent;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,20 @@ public class RealtimeDomainEventListener {
                 .timestamp(event.timestamp())
                 .build();
         realtimeEventPublisher.publishAuctionEvent(event.subastaId(), payload);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onBidOutbid(BidOutbidDomainEvent event) {
+        AuctionRealtimeEvent payload = AuctionRealtimeEvent.builder()
+                .type(RealtimeEventType.BID_OUTBID)
+                .subastaId(event.subastaId())
+                .itemId(event.itemId())
+                .pujaId(event.pujaId())
+                .monto(event.monto())
+                .nombreUsuario(event.nombreUsuario())
+                .timestamp(event.timestamp())
+                .build();
+        realtimeEventPublisher.publishUserBidEvent(event.username(), payload);
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

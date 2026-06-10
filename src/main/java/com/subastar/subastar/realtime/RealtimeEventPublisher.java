@@ -17,8 +17,14 @@ public class RealtimeEventPublisher {
     public void publishAuctionEvent(Integer subastaId, AuctionRealtimeEvent event) {
         String destination = "/topic/subastas/" + subastaId;
         messagingTemplate.convertAndSend(destination, event);
-        log.info("Published BID_PLACED realtime event type={} destination={} pujaId={}",
+        log.info("Published auction realtime event type={} destination={} pujaId={}",
                 event.getType(), destination, event.getPujaId());
+    }
+
+    public void publishUserBidEvent(String username, AuctionRealtimeEvent event) {
+        messagingTemplate.convertAndSendToUser(username, "/queue/pujas", event);
+        log.info("Published BID_OUTBID realtime event user={} subastaId={} itemId={} pujaId={}",
+                username, event.getSubastaId(), event.getItemId(), event.getPujaId());
     }
 
     public void publishUserNotification(String username, UserNotificationRealtimeEvent event) {

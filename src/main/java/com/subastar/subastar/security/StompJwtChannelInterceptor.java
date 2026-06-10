@@ -64,9 +64,9 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
         String destination = accessor.getDestination();
         String username = accessor.getUser() != null ? accessor.getUser().getName() : "anonimo";
 
-        if ("/user/queue/notificaciones".equals(destination) && accessor.getUser() == null) {
+        if (destination != null && destination.startsWith("/user/") && accessor.getUser() == null) {
             log.info("STOMP subscribe rejected user={} destination={}", username, destination);
-            throw new AccessDeniedException("La cola privada de notificaciones requiere autenticacion");
+            throw new AccessDeniedException("Los destinos privados requieren autenticacion");
         }
 
         log.info("STOMP subscribe user={} destination={}", username, destination);
