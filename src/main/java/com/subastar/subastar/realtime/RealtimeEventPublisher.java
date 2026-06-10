@@ -17,13 +17,13 @@ public class RealtimeEventPublisher {
     public void publishAuctionEvent(Integer subastaId, AuctionRealtimeEvent event) {
         String destination = "/topic/subastas/" + subastaId;
         messagingTemplate.convertAndSend(destination, event);
-        log.info("Published auction realtime event type={} destination={} pujaId={}",
+        log.info("Published BID_PLACED realtime event type={} destination={} pujaId={}",
                 event.getType(), destination, event.getPujaId());
     }
 
     public void publishUserNotification(String username, UserNotificationRealtimeEvent event) {
         messagingTemplate.convertAndSendToUser(username, "/queue/notificaciones", event);
-        log.info("Published user notification realtime event user={} notificationId={}",
+        log.info("Published NOTIFICATION_CREATED realtime event user={} notificationId={}",
                 username, event.getNotificationId());
     }
 }

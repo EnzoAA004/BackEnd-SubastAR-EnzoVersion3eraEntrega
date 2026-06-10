@@ -8,6 +8,7 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,8 +30,7 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             authenticateConnect(accessor);
         } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
-            String username = accessor.getUser() != null ? accessor.getUser().getName() : "anonimo";
-            log.info("STOMP subscribe user={} destination={}", username, accessor.getDestination());
+            validateSubscribe(accessor);
         } else if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
             String username = accessor.getUser() != null ? accessor.getUser().getName() : "anonimo";
             log.info("STOMP disconnect user={}", username);
@@ -58,5 +58,17 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         accessor.setUser(authentication);
         log.info("STOMP connect authenticated user={}", email);
+    }
+
+    private void validateSubscribe(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        String username = accessor.getUser() != null ? accessor.getUser().getName() : "anonimo";
+
+        if ("/user/queue/notificaciones".equals(destination) && accessor.getUser() == null) {
+            log.info("STOMP subscribe rejected user={} destination={}", username, destination);
+            throw new AccessDeniedException("La cola privada de notificaciones requiere autenticacion");
+        }
+
+        log.info("STOMP subscribe user={} destination={}", username, destination);
     }
 }
